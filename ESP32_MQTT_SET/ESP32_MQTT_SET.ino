@@ -18,7 +18,8 @@ CRGBSet leds3(leds(16, 23));
 
 struct CRGB *ledarray[] = {leds1, leds2, leds3};
 uint8_t sizearray[] = {8, 8, 8}; 
-
+unsigned long timerUpdate;
+unsigned long ledSpeed = 200;
 // WiFi credentials
 const char* ssid = "Pepper_C1-MUX-88B704";
 const char* password = "";
@@ -33,12 +34,11 @@ const char* mqtt_topic = "esp/test";
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-//const int LED_PINS[] = {2, 25, 26};  // add more 
-//const int NUM_LEDS = sizeof(LED_PINS) / sizeof(LED_PINS[0]);
-const unsigned long timerDuration = 250;
-
-bool ledOn[NUM_LEDS] = {false};
-unsigned long timer_Start[NUM_LEDS] = {0};
+const unsigned long timerDuration = 400;
+bool antennaFlag = false;
+int antenna;
+unsigned long antennaLastActive[LEDSECTIONS] = {0}; 
+bool antennaActive[LEDSECTIONS] = {false};
 
 // LED structure atributes
 struct WipeEffect {
@@ -77,20 +77,16 @@ void callback(char* topic, byte* payload, unsigned int length) {
    // Split message into command and antenna number
   int separatorIndex = message.indexOf(':');  // Find the colon position
   String command = message.substring(0, separatorIndex);  // Extract command
-  int antenna = message.substring(separatorIndex + 1).toInt();  // Extract antenna number
+  antenna = message.substring(separatorIndex + 1).toInt();  // Extract antenna number
+     
+  if (antenna > 0 && antenna < LEDSECTIONS) { 
+      antennaLastActive[antenna] = millis();
+      antennaActive[antenna] = true;  // Mark it as active
 
-    if (antenna >= 1 && antenna <= NUM_LEDS) {
-            int y = antenna - 1; // starts from 0
-            effects[y].active = true;
-            //timer_Start[ledIndex] = millis();
-        }
-    for (int i = 0; i < LEDSECTIONS; i++) {
-        if ((millis() - timer_Start[i] >= timerDuration)) {
-            effects[i].active = false;
-        }
-    }
-   
-   //Serial.println("yes");
+      // Turn on LEDs for this section
+      effects[antenna].active = true;
+      Serial.println("Antenna activated, timer reset.");
+    } 
 }
 
 void setup_led(){
@@ -101,9 +97,9 @@ void setup_led(){
   set_max_power_indicator_LED(13);
 
   // Initialise colorwipe function with WipeEffects atributes
-  __init__CD77_colorwipe(0, CRGB::Blue, timerDuration, 0);
-  __init__CD77_colorwipe(1, CRGB::Red, timerDuration, 0);
-  __init__CD77_colorwipe(2, CRGB::Green, timerDuration, 0);
+  __init__CD77_colorwipe(0, CRGB::Blue, ledSpeed, 0);
+  __init__CD77_colorwipe(1, CRGB::Red, ledSpeed, 0);
+  __init__CD77_colorwipe(2, CRGB::Green, ledSpeed, 0);
 }
 
 void setup_wifi() {
@@ -139,7 +135,7 @@ void updateCD77_colorwipe() {
     if (effects[y].active && now - effects[y].lastUpdate >= effects[y].interval) {
       effects[y].lastUpdate = now;
 
-      int8_t i = effects[y].index;
+      uint8_t i = effects[y].index;
 
       // Clear previous position
       if ((effects[y].reverse && i < sizearray[y] - 3) || (!effects[y].reverse && i > 2)) {
@@ -170,8 +166,22 @@ void updateCD77_colorwipe() {
         }
         effects[y].index = effects[y].reverse ? sizearray[y] - 1 : 0;
       }
+      
     }
   }
+
+  for (uint8_t y = 0; y < LEDSECTIONS; y++) {
+    if (antennaActive[y] && (now - antennaLastActive[y] >= timerDuration)) {
+      Serial.print("Antenna ");
+      Serial.print(y);
+      Serial.println(" has been inactive, turning off LEDs.");
+
+      effects[y].active = false;  // Disable this antenna's LED effect
+      fill_solid(ledarray[y], sizearray[y], CRGB::Black);  // Turn off only this section
+      antennaActive[y] = false;  // Mark it as inactive
+      }
+    }
+  FastLED.show();
 }
 
 void setup() {
