@@ -7,17 +7,19 @@
 #define Data_Pin 25
 #define chipset WS2812B
 #define BRIGHTNESS 50
-#define LEDSECTIONS 3
+#define LEDSECTIONS 5
 
 // LED setting sections
 CRGB rawleds[NUM_LEDS];
 CRGBSet leds(rawleds, NUM_LEDS);
-CRGBSet leds1(leds(0, 7));
-CRGBSet leds2(leds(8, 15));
-CRGBSet leds3(leds(16, 23));
+CRGBSet leds1(leds(0, 11));
+CRGBSet leds2(leds(12, 26));
+CRGBSet leds3(leds(29, 32));
+CRGBSet leds4(leds(33, 36));
+CRGBSet leds5(leds(40, 52));
 
-struct CRGB *ledarray[] = {leds1, leds2, leds3};
-uint8_t sizearray[] = {8, 8, 8}; 
+struct CRGB *ledarray[] = {leds1, leds2, leds3, leds4, leds5};
+uint8_t sizearray[] = {12, 14, 3, 3, 12}; 
 unsigned long timerUpdate;
 unsigned long ledSpeed = 200;
 // WiFi credentials
@@ -79,12 +81,20 @@ void callback(char* topic, byte* payload, unsigned int length) {
   String command = message.substring(0, separatorIndex);  // Extract command
   antenna = message.substring(separatorIndex + 1).toInt();  // Extract antenna number
      
-  if (antenna > 0 && antenna < LEDSECTIONS) { 
+  if (antenna > 0 && antenna < 3) { 
       antennaLastActive[antenna] = millis();
-      antennaActive[antenna] = true;  // Mark it as active
+        antennaActive[antenna] = true; // Mark it as active
 
       // Turn on LEDs for this section
-      effects[antenna].active = true;
+      if (antenna == 2){
+        effects[antenna-1].active = true;
+        effects[antenna].active = true;
+        effects[antenna+1].active = true;
+        effects[antenna+2].active = true;
+      }
+      else {
+        effects[antenna].active = false;
+      }
       Serial.println("Antenna activated, timer reset.");
     } 
 }
@@ -97,9 +107,12 @@ void setup_led(){
   set_max_power_indicator_LED(13);
 
   // Initialise colorwipe function with WipeEffects atributes
-  __init__CD77_colorwipe(0, CRGB::Blue, ledSpeed, 0);
-  __init__CD77_colorwipe(1, CRGB::Red, ledSpeed, 0);
+  effects[0].active = true;
+  __init__CD77_colorwipe(0, CRGB::Red, ledSpeed, 0);
+  __init__CD77_colorwipe(1, CRGB::Blue, ledSpeed, 0);
   __init__CD77_colorwipe(2, CRGB::Green, ledSpeed, 0);
+  __init__CD77_colorwipe(3, CRGB::White, ledSpeed, 0);
+  __init__CD77_colorwipe(4, CRGB::Yellow, ledSpeed, 0);
 }
 
 void setup_wifi() {
@@ -176,6 +189,9 @@ void updateCD77_colorwipe() {
       Serial.print(y);
       Serial.println(" has been inactive, turning off LEDs.");
 
+      for (int i = 0; i <= y; i++){
+        effects[i].active = false;
+      }
       effects[y].active = false;  // Disable this antenna's LED effect
       fill_solid(ledarray[y], sizearray[y], CRGB::Black);  // Turn off only this section
       antennaActive[y] = false;  // Mark it as inactive
