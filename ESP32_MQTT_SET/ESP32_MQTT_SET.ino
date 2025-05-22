@@ -1,5 +1,6 @@
 #include "SET_Header.h"
 
+
 unsigned long timerUpdate;
 unsigned long ledSpeed = 200;
 
@@ -49,7 +50,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   int separatorIndex = message.indexOf(':');  
   String command = message.substring(0, separatorIndex);
   antenna = message.substring(separatorIndex + 1).toInt();
-     
+
     //antennaLastActive[antenna] = millis();
     //antennaActive[antenna] = true;  // Mark it as active
     /*
@@ -71,7 +72,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print("Antenna ");
     Serial.print(antenna);
     Serial.println(" activated.");
-    
 }
 
 void setup_led(){
@@ -204,6 +204,9 @@ void updateCD77_colorwipe() {
       Serial.print(y);
       Serial.println(" has been inactive, turning off LEDs.");
 
+      for (int i = 0; i <= y; i++){
+        effects[i].active = false;
+      }
       effects[y].active = false;  // Disable this antenna's LED effect
       fill_solid(ledarray[y], sizearray[y], CRGB::Black);  // Turn off only this section
       antennaActive[y] = false;  // Mark it as inactive
