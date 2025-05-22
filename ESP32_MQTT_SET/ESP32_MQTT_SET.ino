@@ -1,31 +1,14 @@
-#include <WiFi.h>
-#include <PubSubClient.h>
-#include <FastLED.h>
+#include "SET_Header.h"
 
-// LED definintions
-#define NUM_LEDS 120
-#define Data_Pin 25
-#define chipset WS2812B
-#define BRIGHTNESS 50
-#define LEDSECTIONS 3
-
-// LED setting sections
-CRGB rawleds[NUM_LEDS];
-CRGBSet leds(rawleds, NUM_LEDS);
-CRGBSet leds1(leds(0, 7));
-CRGBSet leds2(leds(8, 15));
-CRGBSet leds3(leds(16, 23));
-
-struct CRGB *ledarray[] = {leds1, leds2, leds3};
-uint8_t sizearray[] = {8, 8, 8}; 
 unsigned long timerUpdate;
 unsigned long ledSpeed = 200;
+
 // WiFi credentials
 const char* ssid = "Pepper_C1-MUX-88B704";
 const char* password = "";
 
 // MQTT broker settings
-const char* mqtt_server = "192.168.100.2";  // Change to your broker
+const char* mqtt_server = "192.168.100.2";
 const int mqtt_port = 1883;
 const char* mqtt_user = "mqtt_user";
 const char* mqtt_password = "smartenergytable";
@@ -40,28 +23,16 @@ int antenna;
 unsigned long antennaLastActive[LEDSECTIONS] = {0}; 
 bool antennaActive[LEDSECTIONS] = {false};
 
-// LED structure atributes
-struct WipeEffect {
-  uint8_t index = 0;
-  bool active = false;
-  bool reverse = false;
-  CRGB color;
-  uint32_t lastUpdate = 0;
-  uint32_t interval;
-};
-
 // Constructor for multiple led sections
 WipeEffect effects[LEDSECTIONS]; // Store animation state for each segment
 
 void __init__CD77_colorwipe(uint8_t y, CRGB color, uint32_t wait, bool reverse) {
-  if (y < LEDSECTIONS) { // Ensure valid index
-    effects[y].index = 0;
-    effects[y].active = false;
-    effects[y].color = color;
-    effects[y].lastUpdate = millis();
-    effects[y].interval = wait;
-    effects[y].reverse = reverse;
-  }
+  effects[y].index = 0;
+  effects[y].active = false;
+  effects[y].color = color;
+  effects[y].lastUpdate = millis();
+  effects[y].interval = wait;
+  effects[y].reverse = reverse;
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -75,31 +46,51 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.println(message);
 
    // Split message into command and antenna number
-  int separatorIndex = message.indexOf(':');  // Find the colon position
-  String command = message.substring(0, separatorIndex);  // Extract command
-  antenna = message.substring(separatorIndex + 1).toInt();  // Extract antenna number
+  int separatorIndex = message.indexOf(':');  
+  String command = message.substring(0, separatorIndex);
+  antenna = message.substring(separatorIndex + 1).toInt();
      
-  if (antenna > 0 && antenna < LEDSECTIONS) { 
+    //antennaLastActive[antenna] = millis();
+    //antennaActive[antenna] = true;  // Mark it as active
+    /*
+    // Turn on LEDs for the corresponding section
+    if (antenna >= 0 && antenna < segments.size()) {
+      segments[antenna].effect.active = true;
       antennaLastActive[antenna] = millis();
-      antennaActive[antenna] = true;  // Mark it as active
-
-      // Turn on LEDs for this section
-      effects[antenna].active = true;
-      Serial.println("Antenna activated, timer reset.");
-    } 
+      antennaActive[antenna] = true;
+      Serial.println("Segment activated.");
+    }
+    */
+    for (int i = 0; i < 5; i++) {
+        uint8_t segmentIndex = antennaToSegments[antenna][i];
+        effects[segmentIndex].active = true;
+        effects[segmentIndex].index = 0;  // Optionally reset effect position
+        antennaLastActive[segmentIndex] = millis();
+        antennaActive[segmentIndex] = true;
+    }
+    Serial.print("Antenna ");
+    Serial.print(antenna);
+    Serial.println(" activated.");
+    
 }
 
 void setup_led(){
   // Define FastLED settings
-  FastLED.addLeds<chipset, Data_Pin>(leds, NUM_LEDS);
+  FastLED.addLeds<CHIPSET, Data_PinS1>(ledsS1, 105);
+  FastLED.addLeds<CHIPSET, Data_PinS2>(ledsS2, 20);
+  FastLED.addLeds<CHIPSET, Data_PinS3>(ledsS3, 20);
+  FastLED.addLeds<CHIPSET, Data_PinS4>(ledsS4, 20);
+  FastLED.addLeds<CHIPSET, Data_PinS5>(ledsS5, 20);
+  FastLED.addLeds<CHIPSET, Data_PinS6>(ledsS6, 20);
+  FastLED.addLeds<CHIPSET, Data_PinS7>(ledsS7, 20);
   FastLED.setBrightness(BRIGHTNESS);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 1500);
   set_max_power_indicator_LED(13);
 
   // Initialise colorwipe function with WipeEffects atributes
-  __init__CD77_colorwipe(0, CRGB::Blue, ledSpeed, 0);
-  __init__CD77_colorwipe(1, CRGB::Red, ledSpeed, 0);
-  __init__CD77_colorwipe(2, CRGB::Green, ledSpeed, 0);
+  for (int i = 0; i < LEDSECTIONS; i++){
+  __init__CD77_colorwipe(i, CRGB::Red, ledSpeed, 0);
+  }
 }
 
 void setup_wifi() {
@@ -129,6 +120,43 @@ void reconnect() {
 
 // Non-blocking LED update function
 void updateCD77_colorwipe() {
+  uint32_t now = millis();
+  for (int i = 0; i < segments.size(); i++) {
+    auto& seg = segments[i];
+    auto& eff = seg.effect;
+
+    if (eff.active && now - eff.lastUpdate >= eff.interval) {
+      eff.lastUpdate = now;
+      uint8_t idx = eff.index;
+
+      if ((eff.reverse && idx < seg.size - 3) || (!eff.reverse && idx > 2)) {
+        seg.leds[eff.reverse ? idx + 3 : idx - 3] = CRGB::Black;
+      }
+
+      if (idx < seg.size) {
+        seg.leds[idx] = eff.color;
+        if (eff.reverse) {
+          if (idx + 1 < seg.size) seg.leds[idx + 1] = eff.color - 100;
+          if (idx + 2 < seg.size) seg.leds[idx + 2] = eff.color - 200;
+        } else {
+          if (idx > 0) seg.leds[idx - 1] = eff.color - 100;
+          if (idx > 1) seg.leds[idx - 2] = eff.color - 200;
+        }
+        eff.index += eff.reverse ? -1 : 1;
+      } else {
+        eff.index = eff.reverse ? seg.size - 1 : 0;
+      }
+    }
+
+    if (antennaActive[i] && (now - antennaLastActive[i] >= timerDuration)) {
+      eff.active = false;
+      fill_solid(seg.leds, seg.size, CRGB::Black);
+      antennaActive[i] = false;
+    }
+  }
+  FastLED.show();
+}
+ /* 
   uint32_t now = millis();
 
   for (uint8_t y = 0; y < LEDSECTIONS; y++) {
@@ -170,7 +198,7 @@ void updateCD77_colorwipe() {
     }
   }
 
-  for (uint8_t y = 0; y < LEDSECTIONS; y++) {
+  for (uint8_t y = 1; y < LEDSECTIONS; y++) {
     if (antennaActive[y] && (now - antennaLastActive[y] >= timerDuration)) {
       Serial.print("Antenna ");
       Serial.print(y);
@@ -183,11 +211,12 @@ void updateCD77_colorwipe() {
     }
   FastLED.show();
 }
-
+*/
 void setup() {
     Serial.begin(115200);
     setup_wifi();
     setup_led();
+    effects[0].active = true;
     client.setServer(mqtt_server, mqtt_port);
     client.setCallback(callback);
 }
@@ -198,5 +227,4 @@ void loop() {
     }
     client.loop();
     updateCD77_colorwipe();
-    FastLED.show();
 }
