@@ -9,10 +9,9 @@ Embedded Systems Team on the Smart Energy Table Project S4
 
 When the board is powered, an access point will come up as Pepper_C1-MUX-[ID].
 Connect to it and configure a static IP address of 192.168.150.24.
----
-To configure the Pepper C1 MUX, go into your web browser and type 192.168.150.1 into the search bar.
-The username and password is given in the documentation.
----
+
+To configure the Pepper C1 MUX, go into your web browser and type 192.168.150.1 into the search bar. The username and password is given in the documentation.
+
 
 
 # How to run
