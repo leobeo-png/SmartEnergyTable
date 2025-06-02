@@ -6,6 +6,7 @@ Embedded Systems Team on the Smart Energy Table Project S4
 - Python 
 
 # Setup
+
 When the board is powered, an access point will come up as Pepper_C1-MUX-[ID].
 Connect to it and configure a static IP address of 192.168.150.24.
 ---
