@@ -45,6 +45,7 @@ struct LEDSegment {
 CRGB ledsS1[45];
 CRGB ledsS2[105], ledsS3[38], ledsS4[15], ledsS5[37], ledsS6[38], ledsS7[44];
 
+
 std::vector<LEDSegment> segments = {
     LEDSegment(CRGBSet(ledsS2, 0, 11), 12, true, CRGB::Red), // Middle
     LEDSegment(CRGBSet(ledsS2, 12, 26), 14, false, CRGB::Red),// Segment 1

@@ -8,11 +8,11 @@ const char* ssid = "Pepper_C1-MUX-88B704";
 const char* password = "";
 
 // MQTT broker settings
-const char* mqtt_server = "192.168.100.5";
+const char* mqtt_server = "192.168.150.24"; // Change it to what ever ip the broker is at
 const int mqtt_port = 1883;
 const char* mqtt_user = "mqtt_user";
 const char* mqtt_password = "smartenergytable";
-const char* mqtt_topic = "esp/test";
+const char* mqtt_topic = "pepper/forwarded";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -22,6 +22,7 @@ bool antennaFlag = false;
 int antenna;
 unsigned long antennaLastActive[LEDSECTIONS] = {0}; 
 bool antennaActive[LEDSECTIONS] = {false};
+
 
 // Constructor for multiple led sections
 WipeEffect effects[LEDSECTIONS]; // Store animation state for each segment
@@ -99,12 +100,27 @@ void setup_wifi() {
     Serial.println("Connected!");
 }
 
+void mqttSplashEffect() {
+  for (int i = 0; i < segments.size(); i++) {
+    fill_solid(segments[i].leds, segments[i].size, CRGB::White); // white
+  }
+  FastLED.show();
+  delay(1000);  // short burst
+
+  for (int i = 0; i < segments.size(); i++) {
+    fill_solid(segments[i].leds, segments[i].size, CRGB::Black);
+  }
+  FastLED.show();
+  delay(150);  // return to background
+}
+
 void reconnect() {
     while (!client.connected()) {
         Serial.print("Attempting MQTT connection...");
         if (client.connect("ESP32Client", mqtt_user, mqtt_password)) {  // Authenticate here
             Serial.println("Connected to MQTT broker");
             client.subscribe(mqtt_topic);
+            mqttSplashEffect();
         } else {
             Serial.print("Failed, rc=");
             Serial.print(client.state());
@@ -163,7 +179,7 @@ void updateCD77_colorwipe() {
       antennaActive[i] = false;
     } 
   }
-  FastLED.show();
+    //FastLED.show();
 }
 
 void setup() {
